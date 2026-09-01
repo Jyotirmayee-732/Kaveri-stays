@@ -1,0 +1,19 @@
+# 4.8 Security Explanation
+
+## Authentication
+The API uses short-lived JWT access tokens...
+
+## Password Security
+Passwords are hashed using bcrypt...
+
+## Refresh Tokens
+Refresh tokens are stored as SHA-256 hashes...
+
+## Account Revocation
+...
+
+## Authorization
+...
+
+## Password-Hash Protection
+...

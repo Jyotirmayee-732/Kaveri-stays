@@ -1,0 +1,417 @@
+openapi: 3.0.3
+info:
+  title: Kaveri Stays API
+  version: 1.0.0
+  description: API for Kaveri Stays
+
+servers:
+  - url: http://127.0.0.1:8000
+
+tags:
+  - name: Authentication
+  - name: Availability
+  - name: Bookings
+  - name: Payments
+  - name: Reviews
+  - name: Reports
+  - name: Me
+
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a guest
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201': {description: Guest account created}
+        '400': {description: Invalid request}
+        '409': {description: Account already exists}
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401': {description: Invalid credentials or disabled account}
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200': {description: Tokens refreshed}
+        '401': {description: Invalid or revoked refresh token}
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204': {description: Logged out}
+        '401': {description: Missing or invalid access token}
+
+  /availability:
+    get:
+      tags: [Availability]
+      summary: Check room availability
+      parameters:
+        - $ref: '#/components/parameters/PropertyId'
+        - name: check_in
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: check_out
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: room_type_id
+          in: query
+          schema: {type: integer}
+      responses:
+        '200':
+          description: Available rooms
+        '400': {description: Invalid date range}
+        '401': {description: Missing or invalid token}
+        '403': {description: Property access denied}
+
+  /properties/{property_id}/rooms:
+    get:
+      tags: [Availability]
+      summary: List rooms
+      parameters:
+        - $ref: '#/components/parameters/PathPropertyId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200': {description: Room inventory}
+        '401': {description: Missing or invalid token}
+        '403': {description: Property access denied}
+
+  /bookings:
+    get:
+      tags: [Bookings]
+      summary: List bookings
+      parameters:
+        - name: property_id
+          in: query
+          schema: {type: integer}
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/BookingStatus'
+        - name: date_from
+          in: query
+          schema: {type: string, format: date}
+        - name: date_to
+          in: query
+          schema: {type: string, format: date}
+        - name: guest_id
+          in: query
+          schema: {type: integer}
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [booking_id, check_in, check_out, created_at, status]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200': {description: Paginated bookings}
+        '400': {description: Invalid filter or sort}
+        '401': {description: Missing or invalid token}
+        '403': {description: Access denied}
+
+    post:
+      tags: [Bookings]
+      summary: Create a booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201': {description: Booking created}
+        '400': {description: Invalid request}
+        '401': {description: Missing or invalid token}
+        '403': {description: Not allowed}
+        '409': {description: Room unavailable or constraint conflict}
+
+  /bookings/{booking_id}:
+    get:
+      tags: [Bookings]
+      summary: Get booking
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      responses:
+        '200': {description: Booking details}
+        '401': {description: Missing or invalid token}
+        '403': {description: Access denied}
+        '404': {description: Booking not found}
+
+    patch:
+      tags: [Bookings]
+      summary: Change booking status
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStatusRequest'
+      responses:
+        '200': {description: Status changed}
+        '400': {description: Illegal transition}
+        '401': {description: Missing or invalid token}
+        '403': {description: Transition not allowed}
+        '404': {description: Booking not found}
+        '409': {description: State conflict}
+
+  /bookings/{booking_id}/payments:
+    post:
+      tags: [Payments]
+      summary: Add a payment
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '201': {description: Payment recorded}
+        '400': {description: Invalid payment}
+        '401': {description: Missing or invalid token}
+        '403': {description: Not allowed}
+        '404': {description: Booking not found}
+        '409': {description: Payment conflict}
+
+  /bookings/{booking_id}/review:
+    post:
+      tags: [Reviews]
+      summary: Leave a review
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '201': {description: Review created}
+        '400': {description: Invalid review}
+        '401': {description: Missing or invalid token}
+        '403': {description: Not the booking guest}
+        '404': {description: Booking not found}
+        '409': {description: Not checked out or review already exists}
+
+  /reports/occupancy:
+    get:
+      tags: [Reports]
+      summary: Occupancy report
+      parameters:
+        - name: property_id
+          in: query
+          schema: {type: integer}
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+      responses:
+        '200': {description: Occupancy report}
+        '400': {description: Invalid date range}
+        '401': {description: Missing or invalid token}
+        '403': {description: Report access denied}
+
+  /reports/adr:
+    get:
+      tags: [Reports]
+      summary: ADR report
+      parameters:
+        - name: property_id
+          in: query
+          schema: {type: integer}
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+      responses:
+        '200': {description: ADR report}
+        '400': {description: Invalid date range}
+        '401': {description: Missing or invalid token}
+        '403': {description: Report access denied}
+
+  /reports/revpar:
+    get:
+      tags: [Reports]
+      summary: RevPAR report
+      parameters:
+        - name: property_id
+          in: query
+          schema: {type: integer}
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+      responses:
+        '200': {description: RevPAR report}
+        '400': {description: Invalid date range}
+        '401': {description: Missing or invalid token}
+        '403': {description: Report access denied}
+
+  /me:
+    get:
+      tags: [Me]
+      summary: Get current account
+      responses:
+        '200': {description: Current account}
+        '401': {description: Missing or invalid token}
+
+components:
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PropertyId:
+      name: property_id
+      in: query
+      required: true
+      schema: {type: integer, minimum: 1}
+    PathPropertyId:
+      name: property_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    BookingId:
+      name: booking_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+    Offset:
+      name: offset
+      in: query
+      schema: {type: integer, minimum: 0, default: 0}
+    DateFrom:
+      name: date_from
+      in: query
+      required: true
+      schema: {type: string, format: date}
+    DateTo:
+      name: date_to
+      in: query
+      required: true
+      schema: {type: string, format: date}
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [full_name, email, password]
+      properties:
+        full_name: {type: string}
+        email: {type: string, format: email}
+        password: {type: string, minLength: 8}
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string}
+
+    LoginResponse:
+      type: object
+      properties:
+        message: {type: string}
+        access_token: {type: string}
+        token_type: {type: string, example: bearer}
+        account_id: {type: integer}
+        guest_id: {type: integer, nullable: true}
+        role: {type: string}
+        refresh_token: {type: string}
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: {type: string}
+
+    BookingStatus:
+      type: string
+      enum: [pending, confirmed, checked_in, checked_out, cancelled]
+
+    CreateBookingRequest:
+      type: object
+      required: [property_id, room_id, check_in, check_out, guest_count, deposit_amount]
+      properties:
+        property_id: {type: integer}
+        room_id: {type: integer}
+        check_in: {type: string, format: date}
+        check_out: {type: string, format: date}
+        guest_count: {type: integer, minimum: 1}
+        deposit_amount: {type: number, minimum: 0}
+
+    ChangeStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+
+    PaymentRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount: {type: number, minimum: 0}
+
+    ReviewRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        comment: {type: string, nullable: true}

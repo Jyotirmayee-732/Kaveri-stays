@@ -1,0 +1,17 @@
+# Environment variables / secrets
+.env
+.env.*
+
+# Allow the example environment file
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+.venv/
+
+# VS Code
+.vscode/
