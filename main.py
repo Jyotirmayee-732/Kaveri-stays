@@ -29,12 +29,23 @@ app = FastAPI(
 )
 
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # Register rate limiter with FastAPI
 app.state.limiter = limiter
 
 app.add_exception_handler(
     RateLimitExceeded,
     _rate_limit_exceeded_handler
+)
+
+# Enable CORS for frontend development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
