@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 DATABASE_URL = URL.create(
     drivername="postgresql+psycopg2",
     username="postgres",
-    password="NewPassword123",
+    password="pgadmin123",
     host="localhost",
     port=5432,
     database="kaveri",
